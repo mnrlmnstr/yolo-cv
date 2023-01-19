@@ -1,0 +1,14 @@
+# IDEs
+.idea/*
+.vscode
+
+# Python
+db.sqlite3
+*.pyc
+.coverage
+/venv/
+/tmp/
+__pycache__/
+.python-version
+
+.DS_Store
