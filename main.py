@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 
-WHITE = (255, 255, 255)
 img = None
 img0 = None
 outputs = None
@@ -10,7 +9,7 @@ model = 'yolov7-tiny_480x640.onnx'
 
 classes = list(map(lambda x: x.strip(), open('coco.names', 'r').readlines()))
 np.random.seed(42)
-colors = np.random.randint(0, 255, size=(len(classes), 3), dtype='uint8')
+colors = np.random.default_rng(3).uniform(0, 255, size=(len(classes), 3))
 
 input_shape = (480, 640)
 input_height = input_shape[0]
@@ -27,8 +26,8 @@ def load_image(path):
     img = img0.copy()
 
     img_color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img_resize = cv2.resize(img_color, (input_width, input_height))
-    blob = cv2.dnn.blobFromImage(img_resize, 1 / 255.0)
+    input_img = cv2.resize(img_color, (input_width, input_height))
+    blob = cv2.dnn.blobFromImage(input_img, 1 / 255.0)
 
     net.setInput(blob)
     outputs = net.forward(ln)
@@ -55,7 +54,6 @@ def post_process(img, outputs, conf):
 
     class_ids = np.argmax(predictions[:, 5:], axis=1)
 
-    # extrax boxes
     boxes = predictions[:, :4]
 
     input_shape = np.array([input_width, input_height, input_width, input_height])
@@ -68,22 +66,35 @@ def post_process(img, outputs, conf):
 
     boxes = boxes_
 
-    indices = cv2.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf, 0.3)
+    indices = cv2.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf, 0.5)
     if len(indices) > 0:
         indices = indices.flatten()
+
+    mask_img = img.copy()
+    det_img = img.copy()
+
+    font_size = min([H, W]) * 0.0006
+    text_thickness = int(min([H, W]) * 0.0001)
 
     for box, score, class_id in zip(boxes[indices], scores[indices], class_ids[indices]):
         x, y, w, h = box.astype(int)
         color = [int(c) for c in colors[class_id]]
 
-        # Draw rectangle
-        cv2.rectangle(img, (x, y), (x+w, y+h), color, thickness=2)
+        cv2.rectangle(det_img, (x, y), (x+w, y+h), color, 1)
+        cv2.rectangle(mask_img, (x, y), (x+w, y+h), color, -1)
+
         label = classes[class_id]
         label = f'{label} {int(score * 100)}%'
-        cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.putText(img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, thickness=2)
+        (tw, th), _ = cv2.getTextSize(text=label, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=font_size, thickness=text_thickness)
+        th = int(th * 1.5)
 
-    return img
+        cv2.rectangle(det_img, (x, y), (x + tw, y - th), color, -1)
+        cv2.rectangle(mask_img, (x, y), (x + tw, y - th), color, -1)
+
+        cv2.putText(det_img, label, (x, y - 2), cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), text_thickness, cv2.LINE_AA)
+        cv2.putText(mask_img, label, (x, y - 2), cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), text_thickness, cv2.LINE_AA)
+
+    return cv2.addWeighted(mask_img, 0.2, det_img, 1 - 0.2, 0)
 
 
-load_image('images/2.jpg')
+load_image('images/dog.jpg')
