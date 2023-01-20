@@ -31,8 +31,8 @@ def load_image(path):
 
     net.setInput(blob)
     outputs = net.forward(ln)
-    img = post_process(img, outputs, 0.7)
-    cv2.imwrite('output.jpg', img)
+    img = post_process(img, outputs, 0.5)
+    cv2.imwrite('images/output.jpg', img)
 
 
 def post_process(img, outputs, conf):
@@ -66,7 +66,7 @@ def post_process(img, outputs, conf):
 
     boxes = boxes_
 
-    indices = cv2.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf, 0.5)
+    indices = cv2.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf, 0.6)
     if len(indices) > 0:
         indices = indices.flatten()
 
